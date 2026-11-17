@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IPL Next-Score Predictor | ES335</title>
+<style>
+:root{--navy:#18364b;--ink:#202a32;--muted:#66737d;--paper:#f5f4f0;--white:#fff;--accent:#d65d36;--line:#e4e1da;--green:#286b55}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{background:var(--navy);color:#fff;padding:44px max(22px,calc((100% - 1050px)/2)) 38px}
+.kicker{font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:#f3b49e;font-weight:750}
+h1{font-size:clamp(2rem,5vw,3.2rem);line-height:1.08;max-width:800px;margin:12px 0}
+header p{max-width:700px;color:#d9e2e7;margin:12px 0 0}
+main{max-width:1050px;margin:30px auto;padding:0 20px}.section{margin:30px 0}.eyebrow{font-size:.73rem;letter-spacing:.13em;text-transform:uppercase;color:var(--accent);font-weight:800}
+h2{font-size:1.55rem;margin:5px 0 14px}h3{font-size:1.08rem;margin:0 0 8px}
+.card{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:0 4px 18px #172b3908}
+label{display:block;font-weight:650;margin:12px 0 6px}select,input{font:inherit;padding:10px 12px;border:1px solid #c9c9c2;border-radius:8px;background:white;max-width:100%}
+select{min-width:min(100%,360px)}.scoregrid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:8px}
+.scoregrid input{width:100%}.hint{font-size:.86rem;color:var(--muted)}
+button{margin-top:20px;background:var(--accent);color:#fff;border:0;border-radius:8px;padding:12px 20px;font:inherit;font-weight:750;cursor:pointer}
+button:hover{filter:brightness(.94)}.result{display:none;margin-top:18px;background:#f4faf7;border:1px solid #cfe3d8;border-radius:12px;padding:18px}
+.resultnum{font-size:2.6rem;font-weight:850;letter-spacing:-.04em;color:var(--green);line-height:1.15}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}.metric{font-size:1.65rem;font-weight:800}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line)}th{font-size:.78rem;text-transform:uppercase;color:var(--muted)}
+details{margin-top:14px}summary{cursor:pointer;font-weight:700;color:var(--navy)}
+.note{border-left:4px solid var(--accent);background:#fff8f4;padding:13px 16px;border-radius:0 8px 8px 0}
+ul{padding-left:21px;color:#46525b}footer{background:#1a303e;color:#d7e0e5;margin-top:45px;padding:24px max(22px,calc((100% - 1050px)/2));font-size:.88rem}
+@media(max-width:680px){.scoregrid{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.card{padding:17px}}
+</style></head>
+<body>
+<header><div class="kicker">ES335 · Machine Learning · Individual project</div>
+<h1>IPL next-score prediction</h1>
+<p>Enter a batter's scores from their five most recent batting appearances. The models use those five scores to estimate how many runs they may score in their next appearance.</p>
+</header>
+<main>
+<section class="section">
+<div class="eyebrow">Prediction tool</div><h2>Try a prediction</h2>
+<div class="card">
+<label for="player">Choose a batter (optional)</label>
+<select id="player"><option value="">Enter scores manually</option></select>
+<p class="hint" id="playerhint">Selecting a batter fills the boxes with their five latest recorded scores. You can edit any value or enter scores manually.</p>
+<label>Runs in the previous five batting appearances</label>
+<div class="scoregrid" id="scoreinputs">
+<div><label for="s1">5 matches ago</label><input id="s1" type="number" min="0" max="300" step="1" placeholder="e.g. 12"></div>
+<div><label for="s2">4 matches ago</label><input id="s2" type="number" min="0" max="300" step="1" placeholder="e.g. 34"></div>
+<div><label for="s3">3 matches ago</label><input id="s3" type="number" min="0" max="300" step="1" placeholder="e.g. 5"></div>
+<div><label for="s4">2 matches ago</label><input id="s4" type="number" min="0" max="300" step="1" placeholder="e.g. 61"></div>
+<div><label for="s5">Previous match</label><input id="s5" type="number" min="0" max="300" step="1" placeholder="e.g. 27"></div>
+</div>
+<label for="model">Prediction model</label>
+<select id="model"><option value="forest">Random Forest</option><option value="linear">Linear Regression</option></select>
+<button id="predict">Predict next score</button>
+<div class="result" id="result" aria-live="polite">
+<div class="hint" id="modelname">Estimated runs</div><div class="resultnum" id="prediction">—</div>
+<p class="hint" id="resultnote"></p>
+</div>
+</div>
+</section>
+<section class="section"><div class="eyebrow">Model evaluation</div><h2>How the models performed</h2>
+<div class="card"><div class="grid" id="metriccards"></div>
+<details><summary>View full model comparison</summary><div style="overflow-x:auto"><table><thead><tr><th>Model</th><th>MAE</th><th>RMSE</th><th>R²</th></tr></thead><tbody id="metrics"></tbody></table></div></details>
+<p class="hint">The test set contains later matches that were not used to fit the models. Lower MAE and RMSE are better; higher R² is better.</p></div>
+</section>
+<section class="section"><div class="eyebrow">About the experiment</div><h2>What was done</h2>
+<div class="card">
+<p>Ball-by-ball IPL data were combined into one total for each batter in each match. For every eligible batting appearance, the five earlier batting-appearance scores were used as input features and the runs in the current appearance were used as the target.</p>
+<ul>
+<li><strong>Baseline:</strong> predicts the average training-set score.</li>
+<li><strong>Linear Regression:</strong> uses the five previous scores to estimate the next score.</li>
+<li><strong>Random Forest:</strong> combines multiple decision trees to model non-linear patterns in the five scores.</li>
+<li><strong>Evaluation:</strong> a chronological split keeps later match dates for testing.</li>
+</ul>
+<div class="note"><strong>How to read the prediction:</strong> the estimate is for the player's next recorded batting appearance. The dataset cannot predict whether a player will be selected or get an opportunity to bat.</div>
+</div></section>
+<section class="section"><div class="eyebrow">Limitations</div><h2>What the prediction leaves out</h2><div class="card">
+<p>The model only receives five previous scores. It does not know the player's batting position, opposition, pitch, venue, match conditions, playing XI, injuries or whether the player will bat. A single score can also be affected by an early dismissal or an unusually long innings. The prediction is an estimate, not a guaranteed score.</p>
+<p class="hint">Data: supplied IPL ball-by-ball dataset, covering records through 3 June 2025. See the repository README and references for data and software details.</p>
+</div></section>
+</main>
+<footer>IPL Next-Score Prediction · ES335 individual machine learning project</footer>
+<script>
+let DATA=null,MODELS=null;
+const $=id=>document.getElementById(id);
+Promise.all([fetch('./data.json').then(r=>{if(!r.ok)throw Error('data.json not found');return r.json()}),
+fetch('./models.json').then(r=>{if(!r.ok)throw Error('models.json not found');return r.json()})])
+.then(([d,m])=>{DATA=d;MODELS=m;init()})
+.catch(e=>{alert('The website data could not be loaded. Run it from the site folder using a local web server. '+e.message)});
+function init(){
+ const names=Object.keys(DATA.players).sort();
+ names.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;$('player').appendChild(o)});
+ $('player').addEventListener('change',fillPlayer);
+ $('predict').addEventListener('click',predict);
+ renderMetrics();
+}
+function fillPlayer(){
+ const name=$('player').value;if(!name)return;
+ const p=DATA.players[name];
+ p.scores.forEach((v,i)=>$('s'+(i+1)).value=v);
+ $('playerhint').textContent='Filled from '+name+"'s five latest batting appearances ("+p.dates.join(', ')+'). Edit the values if you want to test a different recent-form sequence.';
+}
+function getScores(){
+ const vals=[];
+ for(let i=1;i<=5;i++){
+  const raw=$('s'+i).value;
+  if(raw===''||!Number.isFinite(Number(raw))||Number(raw)<0||Number(raw)>300){throw Error('Enter a score from 0 to 300 in all five boxes.')}
+  vals.push(Number(raw));
+ }
+ return vals;
+}
+function linearPredict(x,m){
+ let y=m.intercept;
+ for(let i=0;i<5;i++)y+=((x[i]-m.mean[i])/m.scale[i])*m.coef[i];
+ return Math.max(0,y);
+}
+function treePredict(x,t){
+ let node=0;
+ while(t.left[node]!==t.right[node] && t.feature[node]>=0){
+  const f=t.feature[node];
+  node=x[f]<=t.threshold[node]?t.left[node]:t.right[node];
+ }
+ return t.value[node];
+}
+function forestPredict(x,m){
+ let total=0;
+ for(const t of m.trees)total+=treePredict(x,t);
+ return Math.max(0,total/m.trees.length);
+}
+function predict(){
+ try{
+  const x=getScores(),which=$('model').value;
+  const y=which==='forest'?forestPredict(x,MODELS.forest):linearPredict(x,MODELS.linear);
+  $('modelname').textContent=which==='forest'?'Random Forest estimate':'Linear Regression estimate';
+  $('prediction').textContent=y.toFixed(1)+' runs';
+  $('resultnote').textContent='Based on previous scores: '+x.join(', ')+'. The result is a model estimate for the next batting appearance.';
+  $('result').style.display='block';
+ }catch(e){alert(e.message)}
+}
+function renderMetrics(){
+ const rows=DATA.metrics;
+ $('metrics').innerHTML=rows.map(r=>`<tr><td>${r.Model}</td><td>${r.MAE.toFixed(2)}</td><td>${r.RMSE.toFixed(2)}</td><td>${r.R2.toFixed(3)}</td></tr>`).join('');
+ const best=rows.filter(r=>r.Model!=='Mean baseline').sort((a,b)=>a.MAE-b.MAE)[0];
+ $('metriccards').innerHTML=`<div><div class="metric">${DATA.meta.supervised_rows.toLocaleString()}</div><div class="hint">Training examples available</div></div><div><div class="metric">${DATA.meta.players_with_five_appearances}</div><div class="hint">Batter names with five-score history</div></div><div><div class="metric">${best.MAE.toFixed(2)}</div><div class="hint">Lowest model MAE (runs)</div></div>`;
+}
+</script></body></html>

@@ -1,0 +1,7 @@
+check,result
+Original delivery rows,278205
+Exact duplicate rows,3
+Rows missing match ID,0
+Rows missing batter name,0
+Rows missing date,0
+Rows missing batsman runs,0
